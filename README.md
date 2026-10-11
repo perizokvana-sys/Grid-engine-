@@ -101,6 +101,14 @@ Window / Scripts / Help). Пять рабочих зон:
 
 Play прогоняет сценарий и мэшене c реальным звуком, Stop возвращает отредактированное состояние.
 
+## Быстрая сборка одним кликом
+
+`build.cmd` в корне репозитория собирает Windows x64 Release: он находит CMake
+(сначала `dependencies/cmake/.../bin`, потом `PATH`) и печатает пути к готовым
+exe. Достаточно двойного клика по файлу; нужен установленный Visual Studio
+(MSVC x64). После сборки запускайте редактор из корня репозитория:
+`build\Release\gridengine_editor.exe --project <файл.grid>`.
+
 ## Сборка exe без Visual Studio (CI)
 
 Шаблон воркфлоу лежит в `docs/windows-ci.yml`: он собирает Windows x64 на
