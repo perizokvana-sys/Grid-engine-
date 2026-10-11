@@ -197,55 +197,75 @@ void draw_background(int width, int height) {
 // is a muted slate-teal segment merging into the teal crossbar, with the
 // engineering grid laid over only the upper-left stroke of the ring. No glow:
 // in the reference the letter sits flat on the dark canvas.
+// The brand mark of the reference photo (docs/brand-reference.jpg): a thin
+// white outline ring whose counter is outlined too, an engineering grid filling
+// the band on the upper left, and the solid slate-teal right side - the stem
+// with its flat inner edge plus the arrow-shaped crossbar of the letter.
 void draw_logo(ImDrawList* draw, ImVec2 center, float size) {
-    const float R = size * 0.5f;   // outer radius of the ring
-    const float r = size * 0.345f;  // inner radius (counter) of the ring
-    const float mid = (R + r) * 0.5f;
-    const float stroke = R - r;
+    const float R = size * 0.5f;    // outer radius of the ring
+    const float r = size * 0.320f;  // counter radius
+    const float outline = std::max(1.2f, size * 0.013f);
     const ImU32 white = ImGui::GetColorU32(kWhite);
     const ImU32 teal = ImGui::GetColorU32(kEngine);
 
-    // Angles are screen space: 0 = right, positive = clockwise (y grows down).
-    // The right side of the G is teal (upper right through lower right); the
-    // rest of the ring is the white stroke, exactly like the reference mark.
-    const float teal_lo = -1.05f;
-    const float teal_hi = 0.72f;
+    // Mint halo behind the letter: the quiet glow of the reference art, biased
+    // to the left so the light seems to come from there.
+    const ImVec2 glow_center{center.x - R * 0.10f, center.y};
+    draw->AddCircleFilled(glow_center, R * 1.12f, IM_COL32(62, 207, 142, 10), 96);
+    const ImU32 halo[] = {IM_COL32(62, 207, 142, 12), IM_COL32(62, 207, 142, 20),
+                          IM_COL32(62, 207, 142, 32)};
+    for (int i = 0; i < 3; ++i)
+        draw->AddCircle(glow_center, R * (1.16f - 0.07f * static_cast<float>(i)), halo[i], 96,
+                        outline * 7.0f);
 
-    // The ring is one clean band: a thick stroked arc, so there are no radial
-    // seams between segments the way per-quad fills produce.
-    draw->PathClear();
-    draw->PathArcTo(center, mid, teal_hi, teal_lo + 6.2831853f, 64);
-    draw->PathStroke(white, ImDrawFlags_None, stroke);
+    // The letter is drawn as hairlines: the outer circle and the counter, so the
+    // ring reads as an outline and not as a filled band.
+    draw->AddCircle(center, R - outline * 0.5f, white, 96, outline);
+    draw->AddCircle(center, r, white, 96, outline);
 
-    draw->PathClear();
-    draw->PathArcTo(center, mid, teal_lo, teal_hi, 32);
-    draw->PathStroke(teal, ImDrawFlags_None, stroke);
-
-    // Crossbar: the G's horizontal stroke, merging into the teal right side and
-    // stopping at the outer radius so it never spills past the letter.
-    const float bar_h = (R - r) * 0.90f;
-    draw->AddRectFilled({center.x + r * 0.10f, center.y - bar_h * 0.5f},
-                        {center.x + R, center.y + bar_h * 0.5f}, teal);
-
-    // Engineering grid, clipped to the upper-left stroke of the ring only: both
-    // radii bound each line, so it never floods the counter or the right side.
-    const ImU32 grid_line = IM_COL32(52, 148, 114, 150);
+    // Engineering grid over the upper-left band only (9 o'clock .. 12 o'clock).
+    // Both radii bound every line, so it never floods the counter or the right
+    // side, exactly like the reference patch.
+    const ImU32 grid_line = IM_COL32(150, 208, 190, 105);
     const float step = size / 11.0f;
-    const float grid_th = std::max(1.5f, size * 0.011f);
     for (float x = -R + step * 0.5f; x < 0.0f; x += step) {
         const float outer = std::sqrt(std::max(0.0f, R * R - x * x));
         const float inner = std::sqrt(std::max(0.0f, r * r - x * x));
         if (outer - inner < 2.0f) continue;
         draw->AddLine({center.x + x, center.y - outer}, {center.x + x, center.y - inner},
-                      grid_line, grid_th);
+                      grid_line, outline);
     }
     for (float y = -R + step * 0.5f; y < 0.0f; y += step) {
         const float outer = std::sqrt(std::max(0.0f, R * R - y * y));
         const float inner = std::sqrt(std::max(0.0f, r * r - y * y));
         if (outer - inner < 2.0f) continue;
         draw->AddLine({center.x - outer, center.y + y}, {center.x - inner, center.y + y},
-                      grid_line, grid_th);
+                      grid_line, outline);
     }
+
+    // Solid right side: the stem follows the outer circle and ends on a flat
+    // inner edge, which is what gives the letter its G shape.
+    const float stem_x = r * 1.02f;
+    const float mouth = -0.62f;
+    const float stem_end = std::acos(std::min(1.0f, stem_x / R));
+    draw->PathClear();
+    draw->PathArcTo(center, R, mouth, stem_end, 24);
+    draw->PathLineTo({center.x + stem_x, center.y + R * std::sin(stem_end)});
+    draw->PathLineTo({center.x + stem_x, center.y + R * std::sin(mouth)});
+    draw->PathFillConvex(teal);
+
+    // The crossbar: an arrow pointing left, merging into the stem.
+    const float bar_h = size * 0.105f;
+    const float bar_y = center.y + size * 0.045f;
+    const float tip = center.x + r * 0.34f;
+    const float bevel = size * 0.030f;
+    draw->PathClear();
+    draw->PathLineTo({tip, bar_y});
+    draw->PathLineTo({tip + bevel, bar_y - bar_h * 0.5f});
+    draw->PathLineTo({center.x + R, bar_y - bar_h * 0.5f});
+    draw->PathLineTo({center.x + R, bar_y + bar_h * 0.5f});
+    draw->PathLineTo({tip + bevel, bar_y + bar_h * 0.5f});
+    draw->PathFillConvex(teal);
 }
 
 // --- card icons (outline style, matching the reference) ---------------------
