@@ -1,0 +1,51 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test (MSVC, x64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The repository vendors CMake 4.4.4 under dependencies/, so CI uses the
+      # exact same generator version as a local Release build.
+      - name: Put the bundled CMake on PATH
+        shell: pwsh
+        run: |
+          $cmake = Join-Path $env:GITHUB_WORKSPACE "dependencies\cmake\cmake-4.4.4-windows-x86_64\bin"
+          if (-not (Test-Path $cmake)) { throw "bundled CMake not found at $cmake" }
+          "$cmake" >> $env:GITHUB_PATH
+          & (Join-Path $cmake "cmake.exe") --version
+
+      - name: Configure (Release, x64)
+        run: cmake -S . -B build -A x64
+
+      - name: Build (Release)
+        run: cmake --build build --config Release --parallel
+
+      - name: Test (Release)
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Upload built executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: gridengine-windows-x64
+          path: |
+            build/Release/gridengine_editor.exe
+            build/Release/gridengine_game.exe
+            build/Release/gridengine_demo.exe
+          if-no-files-found: error
+          retention-days: 14
