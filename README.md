@@ -80,8 +80,10 @@ Project» и «Import» делают то же для существующего
 
 Редактор проекта — второй интерфейс того же `gridengine_editor`: строка меню
 (бренд, File…Help, кнопки окна), панель инструментов (new/open/save,
-undo/redo, play/pause/stop, настройки), вкладка сцены и панель «Scene Editor»
-над вьюпортом.
+vsync), вкладка сцены и панель «Scene Editor» над вьюпортом. В полосе «Scene
+Editor» — инструменты select / paint / erase, Stop, зум и переключатель сетки;
+запуск и пауза вынесены на F5 / F6 (F5 — play/stop, F6 — пауза/продолжить),
+кнопки запуска в полосе нет.
 
 Меню `Window` управляет окном (minimize / maximize / restore / close) и
 флоатами (Frames, каталог нод), меню `Help` открывает документацию из `docs/`
@@ -95,7 +97,7 @@ Window / Scripts / Help). Пять рабочих зон:
 | Scene view | чистая OpenGL-сцена: сетка и оси, тайлмап, спрайты, габариты коллайдеров, гизмо осей XYZ в правом верхнем углу; инструменты select / paint / erase, зум, переключатель сетки |
 | Resources | список `assets/`: выбор и клик по сущности привязывают спрайт или WAV |
 | Inspector | вкладки Inspector / Resources: имя, трансформ, секции компонентов (sprite / collider / motion / camera / audio / скрипт Grid) с кнопкой удаления, кнопка «Add Component» добавляет недостающие компоненты |
-| Console | вкладки Output / Errors / Warnings / Log и командная строка (`help`, `save`, `play`, `stop`, `add`, `delete`, `clear`, `select <имя>`) |
+| Console | вкладки Output / Errors / Warnings / Log и командная строка (`help`, `save`, `play`, `stop`, `add`, `delete`, `clear`, `select <имя>`); запуск также F5 / F6 |
 
 Play прогоняет сценарий и мэшене c реальным звуком, Stop возвращает отредактированное состояние.
 

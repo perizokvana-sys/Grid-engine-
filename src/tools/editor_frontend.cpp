@@ -1566,28 +1566,16 @@ void draw_scene_subbar(App& app) {
     separator_vertical();
     ImGui::SameLine();
 
-    // Run controls: play steps the simulation, pause freezes it mid-frame and
-    // stop hands the authored scene back to the editor.
+    // Run control: only Stop sits in the strip. Starting and pausing the
+    // simulation moved to the F5 / F6 hotkeys, so the strip carries no launch
+    // button anymore.
     const bool playing = app.editor.playing();
-    if (icon_button("##sub_play", 5, 24, ImGui::GetColorU32(kMint), playing)) {
-        if (app.project_open) {
-            app.editor.start_play();
-            app.play_paused = false;
-        }
-    }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip(playing ? "Running" : "Play");
-    ImGui::SameLine();
-    if (icon_button("##sub_pause", 6, 24, ImGui::GetColorU32(app.play_paused ? kWhite : kMint),
-                    !playing)) {
-        app.play_paused = !app.play_paused;
-    }
-    if (ImGui::IsItemHovered() && playing) ImGui::SetTooltip(app.play_paused ? "Resume" : "Pause");
-    ImGui::SameLine();
     if (icon_button("##sub_stop", 7, 24, ImGui::GetColorU32(kMint), !playing)) {
         app.editor.stop_play();
         app.play_paused = false;
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Stop");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip(playing ? "Stop (F5)" : "Stop - start with F5, pause with F6");
     ImGui::SameLine();
 
     // Right side: zoom controls and the grid toggle.
@@ -3110,6 +3098,22 @@ int editor_main(int argc, char** argv) {
             if (event.type == SDL_EVENT_KEY_DOWN) {
                 const bool ctrl = (event.key.mod & SDL_KMOD_CTRL) != 0;
                 if (ctrl && event.key.key == SDLK_S && app.project_open) save_scene(app);
+                // F5 / F6 replaced the play and pause buttons of the scene strip.
+                if (event.key.key == SDLK_F5 && app.project_open) {
+                    if (app.editor.playing()) {
+                        app.editor.stop_play();
+                        app.play_paused = false;
+                        app.editor.log("play: stopped (F5)");
+                    } else {
+                        app.editor.start_play();
+                        app.play_paused = false;
+                        app.editor.log("play: started (F5)");
+                    }
+                }
+                if (event.key.key == SDLK_F6 && app.editor.playing()) {
+                    app.play_paused = !app.play_paused;
+                    app.editor.log(app.play_paused ? "play: paused (F6)" : "play: resumed (F6)");
+                }
                 if (event.key.key == SDLK_DELETE && app.project_open && !app.editor.playing()) {
                     if (app.editor.remove_selected()) app.dirty = true;
                 }
