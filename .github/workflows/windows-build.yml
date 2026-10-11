@@ -20,16 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # The repository vendors CMake 4.4.4 under dependencies/, so CI uses the
-      # exact same generator version as a local Release build.
-      - name: Put the bundled CMake on PATH
-        shell: pwsh
-        run: |
-          $cmake = Join-Path $env:GITHUB_WORKSPACE "dependencies\cmake\cmake-4.4.4-windows-x86_64\bin"
-          if (-not (Test-Path $cmake)) { throw "bundled CMake not found at $cmake" }
-          "$cmake" >> $env:GITHUB_PATH
-          & (Join-Path $cmake "cmake.exe") --version
-
       - name: Configure (Release, x64)
         run: cmake -S . -B build -A x64
 
