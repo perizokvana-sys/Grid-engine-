@@ -232,7 +232,7 @@ void AudioDevice::set_listener(const AudioListenerConfig& listener) noexcept {
 
 void AudioDevice::stop_all() noexcept {
     for (const auto& voice : voices_)
-        if (voice.stream && !voice.finished) stop(voice.id);
+        if (voice.stream && !voice.finished) (void)stop(voice.id);
 }
 
 void AudioDevice::update() noexcept {

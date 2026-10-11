@@ -101,11 +101,11 @@ int main() {
     check(!scene.set_animation(999, slot, 0), "an unknown entity is rejected");
 
     // Playback: at 10 fps, 0.35s advances three frames...
-    scene.advance_animation(hero, 0.35);
+    (void)scene.advance_animation(hero, 0.35);
     check(scene.find(hero)->sprite->frame == 3, "the clip advanced three frames");
     check(scene.find(hero)->sprite->frame_x == 48, "the sprite shows the fourth cell");
     // ...and the looping clip wraps back to the first cell.
-    scene.advance_animation(hero, 0.15);
+    (void)scene.advance_animation(hero, 0.15);
     check(scene.find(hero)->sprite->frame == 0, "the clip wraps around when it loops");
     // A negative delta never moves playback backwards.
     const int held = scene.find(hero)->sprite->frame;
@@ -119,14 +119,14 @@ int main() {
     once.frames = {0, 1};
     once.fps = 4.0;
     scene.frameset(slot)->clips.front() = once;
-    scene.set_animation(hero, 0, 0);
-    scene.advance_animation(hero, 0.5);
+    (void)scene.set_animation(hero, 0, 0);
+    (void)scene.advance_animation(hero, 0.5);
     check(scene.find(hero)->sprite->frame == 1, "a non-looping clip reaches its last frame");
     check(!scene.find(hero)->sprite->playing, "a non-looping clip pauses on its last frame");
     scene.find(hero)->sprite->playing = true;
 
     // Pausing playback freezes the frame.
-    scene.set_animation(hero, 1, 0);
+    (void)scene.set_animation(hero, 1, 0);
     scene.find(hero)->sprite->playing = false;
     const int frozen = scene.find(hero)->sprite->frame;
     check(!scene.advance_animation(hero, 1.0), "a paused sprite does not advance");
@@ -136,7 +136,7 @@ int main() {
     const auto file = dir / "scenes" / "main.scene";
     scene.find(hero)->sprite->playing = true;
     check(scene.set_animation(hero, slot, 1), "re-play the walk clip before saving");
-    scene.advance_animation(hero, 0.15);
+    (void)scene.advance_animation(hero, 0.15);
     check(scene.save(file), "save a scene with a frameset animation");
     {
         std::ifstream in(file, std::ios::binary);
@@ -205,7 +205,7 @@ int main() {
     // A scene with plain sprites is still written at the legacy format.
     {
         Scene plain;
-        plain.create_entity("Box");
+        (void)plain.create_entity("Box");
         plain.find(1)->sprite = gridengine::Sprite2D{};
         const auto plain_file = dir / "scenes" / "plain.scene";
         check(plain.save(plain_file), "save a scene without framesets");
@@ -230,7 +230,7 @@ int main() {
         one.frames = {0};
         sheet.clips = {one};
         const int sheet_slot = shared.add_frameset(sheet);
-        shared.set_animation(hero2, sheet_slot, 0);
+        (void)shared.set_animation(hero2, sheet_slot, 0);
         const auto clone = shared.duplicate_entity(hero2);
         check(clone.has_value(), "duplicate an entity with an animated sprite");
         if (clone && shared.find(*clone)) {

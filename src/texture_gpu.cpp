@@ -14,6 +14,7 @@
 #endif
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <system_error>
@@ -175,7 +176,7 @@ void GLTextureCache::draw(const Sprite2D& sprite, const Transform2D& world,
 std::pair<int, int> GLTextureCache::texture_size(const std::string& texture_path,
                                                  const std::filesystem::path& root) {
     std::string error;
-    acquire(texture_path, root, error);
+    (void)acquire(texture_path, root, error);
     if (const Entry* entry = find(resolve_key(root, texture_path))) return {entry->width, entry->height};
     return {0, 0};
 }

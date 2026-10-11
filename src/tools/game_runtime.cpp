@@ -102,7 +102,7 @@ void run_frame(gridengine::Scene& scene, gridengine::ModuleLoader& modules, doub
     }
     // Sprite sheet framesets advance after motion, so animated characters walk
     // and idle exactly in step with their movement.
-    scene.advance_animations(delta);
+    (void)scene.advance_animations(delta);
 }
 
 // The package root texture paths are resolved against; set before the first

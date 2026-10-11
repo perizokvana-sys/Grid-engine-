@@ -13,6 +13,7 @@
 #include "gridengine/export.hpp"
 #include "gridengine/project.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -58,15 +59,7 @@ fs::path first_existing(const std::vector<fs::path>& candidates) {
     return {};
 }
 fs::path bundled_cmake(const fs::path& root) {
-    const auto base = root / "dependencies" / "cmake";
-    std::error_code ec;
-    fs::path best;
-    for (const auto& entry : fs::directory_iterator(base, ec)) {
-        const auto candidate = entry.path() / "bin" / "cmake.exe";
-        if (exists_file(candidate) && (best.empty() || entry.path().filename() > best.filename()))
-            best = candidate;
-    }
-    return best;
+    return gridengine::find_cmake_executable(root);
 }
 
 // Every build*/ directory of the engine root, newest first, plus the build tree

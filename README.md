@@ -14,20 +14,26 @@ GridEngine — небольшой C++20 2D-движок: числовой язы
 
 ## Сборка
 
-CMake и зависимости (SDL3, Dear ImGui) уже лежат в `dependencies/`, отдельно
-ничего скачивать не нужно.
+Исходники SDL3 и Dear ImGui уже лежат в `dependencies/`, скачивать их не
+нужно; бинарники CMake в репозитории не хранятся (см. ниже).
 
 ```powershell
 $cmake = ".\dependencies\cmake\cmake-4.4.4-windows-x86_64\bin\cmake.exe"
 $ctest = ".\dependencies\cmake\cmake-4.4.4-windows-x86_64\bin\ctest.exe"
 & $cmake -S . -B build -G "Visual Studio 18 2026" -A x64
 & $cmake --build build --config Debug --parallel
-& $ctest --test-dir build -C Debug --output-on-failure   # 14 тестов
+& $ctest --test-dir build -C Debug --output-on-failure   # 16 тестов
 ```
+
+Бинарники инструментов в репозитории не хранятся, поэтому в свежем клоне
+`dependencies\cmake\...\bin` пуст: используйте системный CMake ≥ 3.20
+(и `ctest` из него) — движок, редактор и экспорт сами берут `cmake` из `PATH`,
+если в `dependencies\cmake` его нет.
 
 Опции сборки: `-DGRIDENGINE_BUILD_TESTS=OFF`, `-DGRIDENGINE_BUILD_EDITOR=OFF`.
 Для экспорта исполняемого файла нужен установленный MSVC (x64) — он же
-собирает игровой runtime внутри пакета.
+собирает игровой runtime внутри пакета. Тесты C# требуют dotnet SDK, тесты
+текстур и звука требуют Windows (WIC) и SDL3.
 
 ## Что внутри
 

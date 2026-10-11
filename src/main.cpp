@@ -136,19 +136,6 @@ std::filesystem::path find_up(const std::string& relative) {
     return {};
 }
 
-std::filesystem::path find_bundled_cmake() {
-    const auto base = find_up("dependencies/cmake");
-    if (base.empty()) return {};
-    std::error_code ec;
-    std::filesystem::path best;
-    for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
-        const auto candidate = entry.path() / "bin" / "cmake.exe";
-        if (exists_file(candidate) && (best.empty() || entry.path().filename() > best.filename()))
-            best = candidate.parent_path().parent_path() / "bin" / "cmake.exe";
-    }
-    return best;
-}
-
 // Locates the prebuilt static libraries in the build tree, preferring the
 // configuration that matches the requested build type.
 std::filesystem::path find_build_artifact(const std::string& relative, const std::string& config) {
@@ -170,7 +157,7 @@ std::filesystem::path find_build_artifact(const std::string& relative, const std
 
 gridengine::ExportToolchain resolve_toolchain(gridengine::BuildType type) {
     gridengine::ExportToolchain t;
-    t.cmake = find_bundled_cmake();
+    t.cmake = gridengine::find_cmake_executable();
     t.engine_include_dir = find_up("include");
     t.gridengine_static_lib = find_build_artifact("gridengine.lib",
         type == gridengine::BuildType::release ? "Release" : "Debug");

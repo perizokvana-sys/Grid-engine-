@@ -54,7 +54,10 @@ const Entity* Scene::find(EntityId id) const noexcept {
 EntityId Scene::create_entity(std::string name, std::optional<EntityId> parent) {
     if ((parent && !find(*parent)) || next_id_ == 0 || next_id_ == std::numeric_limits<EntityId>::max()) return 0;
     const EntityId id = next_id_++;
-    entities_.push_back(Entity{id, std::move(name)});
+    Entity entity;
+    entity.id = id;
+    entity.name = std::move(name);
+    entities_.push_back(std::move(entity));
     if (parent) { entities_.back().parent = parent; find(*parent)->children.push_back(id); }
     return id;
 }
@@ -154,7 +157,7 @@ std::vector<std::pair<EntityId, EntityId>> Scene::collisions() const {
 bool Scene::remove_entity(EntityId id) {
     auto* e = find(id); if (!e) return false;
     const auto children = e->children;
-    for (auto child : children) remove_entity(child);
+    for (auto child : children) (void)remove_entity(child);
     e = find(id); if (e && e->parent) if (auto* p = find(*e->parent)) std::erase(p->children, id);
     std::erase_if(entities_, [=](const Entity& item) { return item.id == id; }); return true;
 }
@@ -169,7 +172,9 @@ std::optional<EntityId> Scene::duplicate_entity(EntityId id) {
     for (auto child : copy.children) {
         auto cloned_child = duplicate_entity(child);
         if (!cloned_child || !set_parent(*cloned_child, clone, false)) {
-            remove_entity(clone); if (cloned_child) remove_entity(*cloned_child); return {};
+            (void)remove_entity(clone);
+            if (cloned_child) (void)remove_entity(*cloned_child);
+            return {};
         }
     }
     return clone;
@@ -180,7 +185,9 @@ std::vector<EntityId> Scene::entities() const { std::vector<EntityId> r; for (co
 bool Scene::save(const std::filesystem::path& file) const {
     for (const auto& e : entities_) if (!e.id || !finite(e.transform) || e.name.empty() ||
         (e.motion && !finite(*e.motion)) || (e.collider && !valid(*e.collider)) ||
-        (e.sprite && e.sprite->texture.find('\0') != std::string::npos) ||
+        (e.sprite && (e.sprite->texture.find('\0') != std::string::npos ||
+                      !std::isfinite(e.sprite->size.x) || !std::isfinite(e.sprite->size.y) ||
+                      e.sprite->size.x <= 0.0 || e.sprite->size.y <= 0.0)) ||
         (e.sprite && !std::isfinite(e.sprite->elapsed)) ||
         (e.camera && (!std::isfinite(e.camera->zoom) || e.camera->zoom <= 0.0)) ||
         (e.audio && !e.audio->valid())) return false;
@@ -189,7 +196,8 @@ bool Scene::save(const std::filesystem::path& file) const {
     // Scripts are a format 4 addition; sprite sizes are a format 5 addition;
     // audio sources are a format 6 addition; frameset animation is a format 7
     // addition. The writer only bumps the version when the data actually needs
-    // it, so legacy scenes stay at versions 1-3.
+    // it, so legacy scenes stay at versions 1-3. From version 5 on the sprite
+    // size is always written, because the reader always reads it back.
     const bool has_script = std::any_of(entities_.begin(), entities_.end(),
                                           [](const Entity& e) { return !e.script.empty(); });
     const bool has_sprite_size = std::any_of(entities_.begin(), entities_.end(), [](const Entity& e) {
@@ -200,11 +208,6 @@ bool Scene::save(const std::filesystem::path& file) const {
     const bool has_animation = !framesets_.empty() ||
                                std::any_of(entities_.begin(), entities_.end(),
                                            [](const Entity& e) { return e.sprite && e.sprite->animating(); });
-    // Scripts are a format 4 addition; sprite sizes are a format 5 addition;
-    // audio sources are a format 6 addition; frameset animation is a format 7
-    // addition. The writer only bumps the version when the data actually needs
-    // it, so legacy scenes stay at versions 1-3. From version 5 on the sprite
-    // size is always written, because the reader always reads it back.
     int format = has_script ? 4 : 3;
     if (has_sprite_size) format = 5;
     if (has_audio) format = 6;

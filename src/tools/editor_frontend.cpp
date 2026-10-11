@@ -220,17 +220,7 @@ ImFont* font_at(float px) {
 gridengine::ExportToolchain resolve_toolchain(gridengine::BuildType type) {
     gridengine::ExportToolchain toolchain;
     const auto here = fs::current_path();
-    toolchain.cmake = find_up(here, "dependencies/cmake");
-    if (!toolchain.cmake.empty()) {
-        std::error_code ec;
-        fs::path best;
-        for (const auto& entry : fs::directory_iterator(toolchain.cmake, ec)) {
-            const auto candidate = entry.path() / "bin" / "cmake.exe";
-            if (exists_file(candidate) && (best.empty() || entry.path().filename() > best.filename()))
-                best = candidate;
-        }
-        toolchain.cmake = std::move(best);
-    }
+    toolchain.cmake = gridengine::find_cmake_executable(here);
     toolchain.engine_include_dir = find_up(here, "include");
     toolchain.game_runtime_source = find_up(here, "src/tools/game_runtime.cpp");
     toolchain.sdl_include_dir = find_up(here, "dependencies/sdl3-3.4.18/SDL3-3.4.18/include");
@@ -350,7 +340,7 @@ void run_command(App& app) {
         app.editor.clear_console();
     } else if (text == "add") {
         app.editor.log(line);
-        app.editor.create_entity("Entity");
+        (void)app.editor.create_entity("Entity");
         app.dirty = true;
     } else if (text == "delete") {
         app.editor.log(line);
@@ -363,7 +353,7 @@ void run_command(App& app) {
         const std::string name = text.substr(7);
         for (const auto id : app.editor.scene().entities()) {
             const auto* entity = app.editor.scene().find(id);
-            if (entity && entity->name == name) app.editor.select(id);
+            if (entity && entity->name == name) (void)app.editor.select(id);
         }
     } else {
         app.editor.log(line);
@@ -1106,7 +1096,7 @@ void handle_scene_input(App& app, const ImGuiIO& io) {
                 world_y >= world.position.y && world_y <= world.position.y + h) hit = id;
         }
         if (hit) {
-            app.editor.select(hit);
+            (void)app.editor.select(hit);
             if (!app.selected_asset.empty()) {
                 const auto extension = fs::path(app.selected_asset).extension().string();
                 if (extension == ".wav") {
@@ -1114,17 +1104,17 @@ void handle_scene_input(App& app, const ImGuiIO& io) {
                     source.resource = "assets/" + app.selected_asset;
                     source.volume = 1.0f;
                     source.loop = true;
-                    app.editor.set_audio(source);
+                    (void)app.editor.set_audio(source);
                 } else {
                     gridengine::Sprite2D sprite;
                     sprite.texture = "assets/" + app.selected_asset;
                     sprite.size = {32.0, 32.0};
-                    app.editor.set_sprite(sprite);
+                    (void)app.editor.set_sprite(sprite);
                 }
                 app.dirty = true;
             }
         } else {
-            app.editor.select(std::nullopt);
+            (void)app.editor.select(std::nullopt);
         }
     }
 }
@@ -1259,7 +1249,7 @@ void draw_menu_bar(App& app) {
                 if (ImGui::MenuItem("Quit", "Alt+F4")) app.running = false;
             } else if (which == "Edit") {
                 if (ImGui::MenuItem("Add entity", nullptr, false, editing)) {
-                    app.editor.create_entity("Entity");
+                    (void)app.editor.create_entity("Entity");
                     app.dirty = true;
                 }
                 if (ImGui::MenuItem("Duplicate", nullptr, false, editing && has_selection)) {
@@ -1309,7 +1299,7 @@ void draw_menu_bar(App& app) {
                 }
             } else if (which == "Scene") {
                 if (ImGui::MenuItem("Add entity", nullptr, false, editing)) {
-                    app.editor.create_entity("Entity");
+                    (void)app.editor.create_entity("Entity");
                     app.dirty = true;
                 }
                 ImGui::Separator();
@@ -1544,7 +1534,7 @@ void draw_hierarchy(App& app, float height) {
     ImGui::PushID("##hierhdr");
     ImGui::SetCursorPos({kHierarchyWidth - 88.0f, 4.0f});
     if (icon_button("##hier_add", 17, 22, ImGui::GetColorU32(kWhiteDim), !editing)) {
-        app.editor.create_entity("Entity");
+        (void)app.editor.create_entity("Entity");
         app.dirty = true;
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Add entity");
@@ -1606,7 +1596,7 @@ void draw_hierarchy(App& app, float height) {
 
         const bool selected = app.editor.selection() == item.id;
         const std::string label = entity->name + "###entity" + std::to_string(item.id);
-        if (ImGui::Selectable(label.c_str(), selected)) app.editor.select(item.id);
+        if (ImGui::Selectable(label.c_str(), selected)) (void)app.editor.select(item.id);
 
         // Visibility eye on the right edge of every row; only sprites can
         // actually be toggled, other rows show the eye as an open hint.
@@ -1615,10 +1605,10 @@ void draw_hierarchy(App& app, float height) {
         const bool visible = entity->sprite ? entity->sprite->visible : true;
         if (ImGui::InvisibleButton("##eye", {20.0f, 20.0f}) && entity->sprite) {
             if (!app.editor.playing()) {
-                app.editor.select(item.id);
+                (void)app.editor.select(item.id);
                 gridengine::Sprite2D sprite = *entity->sprite;
                 sprite.visible = !visible;
-                app.editor.set_sprite(sprite);
+                (void)app.editor.set_sprite(sprite);
                 app.dirty = true;
             }
         }
@@ -2669,7 +2659,7 @@ void draw_inspector(App& app) {
         static char name[256]{};
         if (app.editor.selection() != app.script_owner) std::snprintf(name, sizeof(name), "%s", entity->name.c_str());
         if (ImGui::InputText("name", name, sizeof(name))) {
-            app.editor.rename_selected(name);
+            (void)app.editor.rename_selected(name);
             app.dirty = true;
         }
     } else {
@@ -2795,7 +2785,7 @@ void draw_inspector(App& app) {
         float volume = source.volume;
         ImGui::SetNextItemWidth(-FLT_MIN);
         if (editing && ImGui::SliderFloat("volume", &volume, 0.0f, 1.0f, "%.2f")) {
-            source.set_volume(volume);
+            (void)source.set_volume(volume);
             if (app.editor.set_audio(source)) app.dirty = true;
         }
         if (editing && ImGui::Checkbox("loop", &source.loop)) {
@@ -3026,7 +3016,7 @@ int editor_main(int argc, char** argv) {
         if (app.editor.playing() && !app.play_paused) app.editor.step(delta);
         // The frameset editor previews sliced clips without entering play mode.
         if (app.frameset_preview && app.project_open && !app.editor.playing())
-            app.editor.advance_animations(delta);
+            (void)app.editor.advance_animations(delta);
 
         // "Import" in the frames window: the picked image is copied into the
         // project's assets/ folder and becomes the sheet of the open frameset.
@@ -3054,7 +3044,7 @@ int editor_main(int argc, char** argv) {
                         if (node->sprite) {
                             gridengine::Sprite2D value = *node->sprite;
                             value.texture = relative;
-                            app.editor.set_sprite(value);
+                            (void)app.editor.set_sprite(value);
                         }
                     }
                     app.dirty = true;

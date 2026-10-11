@@ -34,8 +34,8 @@ int main() {
 
     // tile_count counts non-empty cells.
     assert(map.tile_count() == 0);
-    map.set_cell(0, 0, {1, 0});
-    map.set_cell(2, 2, {1, 0});
+    (void)map.set_cell(0, 0, {1, 0});
+    (void)map.set_cell(2, 2, {1, 0});
     assert(map.tile_count() == 2);
 
     // cell_center: world position at the middle of a cell.
@@ -84,8 +84,8 @@ int main() {
 
     // Save / load round-trip.
     TileMap2D save_map(2, 2, 16.0, 16.0);
-    save_map.set_cell(0, 0, {5, 0x11223344u});
-    save_map.set_cell(1, 1, {9, 0xAABBCCDDu});
+    (void)save_map.set_cell(0, 0, {5, 0x11223344u});
+    (void)save_map.set_cell(1, 1, {9, 0xAABBCCDDu});
     const auto path = std::filesystem::temp_directory_path() / "gridengine_tilemap_test.gridmap";
     assert(save_map.save(path));
     auto loaded = TileMap2D::load(path);

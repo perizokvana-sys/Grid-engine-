@@ -130,8 +130,8 @@ int main() {
         check(near_voice != 0 && far_voice != 0, "play spatial voices");
         audio.update();
         check(audio.state(near_voice) == gridengine::PlaybackState::Playing, "near voice plays");
-        audio.stop(near_voice);
-        audio.stop(far_voice);
+        (void)audio.stop(near_voice);
+        (void)audio.stop(far_voice);
     }
 
     // Looping refeeds instead of finishing.
@@ -143,7 +143,7 @@ int main() {
         check(voice != 0, "play a looping voice");
         for (int i = 0; i < 5; ++i) audio.update();
         check(audio.state(voice) == gridengine::PlaybackState::Playing, "looping voice keeps playing");
-        audio.stop(voice);
+        (void)audio.stop(voice);
     }
 
     // A one-shot voice is released once its samples are consumed.

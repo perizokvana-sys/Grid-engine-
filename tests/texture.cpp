@@ -129,6 +129,10 @@ int main() {
     std::vector<std::uint32_t> png_pixels = {rgba(255, 0, 0, 255), rgba(0, 255, 0, 255), rgba(0, 0, 255, 255),
                                              rgba(255, 255, 255, 128)};
     check(write_png(dir / "test.png", 2, 2, png_pixels), "write a real 2x2 PNG");
+    // The PNG decoder is the platform one (WIC on Windows); elsewhere the
+    // engine answers "only BMP is supported on this platform", so the checks
+    // that need a real decode only run where such a decoder exists.
+#ifdef _WIN32
     {
         const Image png = gridengine::load_image(dir / "test.png");
         check(png.valid(), "decode the PNG");
@@ -141,6 +145,9 @@ int main() {
                   png.pixels[3] == rgba(255, 255, 255, 255),
               "PNG pixel values (alpha normalized to opaque)");
     }
+#else
+    std::printf("  PNG decoding skipped (the platform decoder is Windows-only)\n");
+#endif
 
     // --- BMP through the built-in decoder --------------------------------
     {
@@ -159,12 +166,14 @@ int main() {
     }
 
     // --- relative path resolution -----------------------------------------
+    // Uses the BMP written above: the check is about path resolution, and BMP
+    // decoding works on every platform.
     {
-        const auto nested = dir / "nested" / "test.png";
+        const auto nested = dir / "nested" / "test.bmp";
         std::filesystem::create_directories(nested.parent_path(), ec);
-        std::filesystem::copy_file(dir / "test.png", nested, ec);
-        const Image image = gridengine::load_image("nested/test.png", dir);
-        check(image.valid() && image.width == 2, "relative path resolves against the base root");
+        std::filesystem::copy_file(dir / "test.bmp", nested, ec);
+        const Image image = gridengine::load_image("nested/test.bmp", dir);
+        check(image.valid() && image.width == 3, "relative path resolves against the base root");
     }
 
     // --- failures ----------------------------------------------------------
