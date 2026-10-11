@@ -78,17 +78,40 @@ Project» и «Import» делают то же для существующего
 Редактор проекта — второй интерфейс того же `gridengine_editor`: строка меню
 (бренд, File…Help, кнопки окна), панель инструментов (new/open/save,
 undo/redo, play/pause/stop, настройки), вкладка сцены и панель «Scene Editor»
-над вьюпортом. Пять рабочих зон:
+над вьюпортом.
+
+Меню `Window` управляет окном (minimize / maximize / restore / close) и
+флоатами (Frames, каталог нод), меню `Help` открывает документацию из `docs/`
+и профиль автора в Discord (`https://discord.com/users/1502361530950353178`,
+ссылка есть и в меню `Scripts`, и в футере лаунчера — кнопки
+Window / Scripts / Help). Пять рабочих зон:
 
 | Зона | Что делает |
 |---|---|
-| Hierarchy | дерево сцены, поиск, выбор, Add / Duplicate / Delete, глаз видимости на каждой строке |
+| Hierarchy | дерево сцены, поиск, выбор, отдельная кнопка «+» (каталог нод), Add / Duplicate / Delete, глаз видимости на каждой строке |
 | Scene view | чистая OpenGL-сцена: сетка и оси, тайлмап, спрайты, габариты коллайдеров, гизмо осей XYZ в правом верхнем углу; инструменты select / paint / erase, зум, переключатель сетки |
 | Resources | список `assets/`: выбор и клик по сущности привязывают спрайт или WAV |
 | Inspector | вкладки Inspector / Resources: имя, трансформ, секции компонентов (sprite / collider / motion / camera / audio / скрипт Grid) с кнопкой удаления, кнопка «Add Component» добавляет недостающие компоненты |
 | Console | вкладки Output / Errors / Warnings / Log и командная строка (`help`, `save`, `play`, `stop`, `add`, `delete`, `clear`, `select <имя>`) |
 
 Play прогоняет сценарий и мэшене c реальным звуком, Stop возвращает отредактированное состояние.
+
+## Сборка exe без Visual Studio (CI)
+
+Шаблон воркфлоу лежит в `docs/windows-ci.yml`: он собирает Windows x64 на
+`windows-latest` (MSVC + системный CMake) и публикует `gridengine_editor.exe`,
+`gridengine_demo.exe` и `gridengine_game.exe` как artifact. Файл нельзя
+закоммитить под `Cline`-токеном (нужно право `workflows`), поэтому включите его
+одной командой:
+
+```powershell
+mkdir .github\workflows
+cp docs/windows-ci.yml .github/workflows/windows-build.yml
+git add .github/workflows/windows-build.yml && git commit -m "Add Windows CI" && git push
+```
+
+Дальше push в `main` (или кнопка Run workflow на вкладке Actions) собирает exe,
+файлы забираются из artifact «gridengine-windows-x64».
 
 ## Экспорт Windows x64
 

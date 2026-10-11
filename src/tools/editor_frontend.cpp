@@ -23,6 +23,7 @@
 //   gridengine_editor_view [--project <file.grid>]
 
 #include "gridengine/editor.hpp"
+#include "gridengine/engine.hpp"
 #include "gridengine/export.hpp"
 #include "gridengine/project.hpp"
 #include "gridengine/scene.hpp"
@@ -83,6 +84,10 @@ constexpr ImVec4 kAxisY{0.341f, 0.671f, 0.353f, 1.0f};
 
 constexpr const char* kFontBold = "dependencies/imgui/imgui-master/misc/fonts/Roboto-Medium.ttf";
 constexpr const char* kFontText = "dependencies/imgui/imgui-master/misc/fonts/DroidSans.ttf";
+
+// Support links: the Window, Scripts and Help menus open this Discord profile.
+constexpr const char* kDiscordUrl = "https://discord.com/users/1502361530950353178";
+constexpr const char* kDiscordId = "1502361530950353178";
 
 // ------------------------------------------------------------- layout sizes --
 constexpr float kMenuBar = 34.0f;      // brand + menus + window controls
@@ -152,8 +157,14 @@ struct App {
     int frameset_rows{1};
     int frameset_margin{0};
     int frameset_spacing{0};
+    int frameset_index{-1};         // selected frameset (sheet) index
     int frameset_slot{-1};          // selected animation (clip) index
     int frameset_playhead{-1};      // selected slot of that animation
+    // Name buffer of the selected animation. Keyed to the selection so the
+    // field shows the name of the animation that is actually open.
+    char clip_name[64]{};
+    int clip_name_frameset{-1};
+    int clip_name_slot{-1};
     bool frameset_sheet_open{false}; // sheet-frame strip under the timeline
     std::string frameset_import;    // image file picked with "Import"
     // "New Grid script" dialog: name + attach to the selected node.
@@ -706,6 +717,20 @@ void draw_icon(ImDrawList* draw, int icon, ImVec2 c, float s, ImU32 col) {
         draw->PathStroke(col, th, ImDrawFlags_Closed);
         break;
     }
+    case 44: { // node: a square with a plus badge, for "add node"
+        const float a = s * 0.30f;
+        draw->AddRect({c.x - a, c.y - a}, {c.x + a, c.y + a}, col, s * 0.06f, 0, th);
+        draw->AddLine({c.x + a, c.y + a}, {c.x + a + s * 0.18f, c.y + a + s * 0.18f}, col, th);
+        draw->AddRectFilled({c.x + a - s * 0.04f, c.y + a - s * 0.04f},
+                            {c.x + a + s * 0.26f, c.y + a + s * 0.26f}, col, s * 0.05f);
+        draw->AddLine({c.x + a + s * 0.05f, c.y + a + s * 0.11f},
+                      {c.x + a + s * 0.17f, c.y + a + s * 0.11f}, ImGui::GetColorU32(kBlack),
+                      th * 0.9f);
+        draw->AddLine({c.x + a + s * 0.11f, c.y + a + s * 0.05f},
+                      {c.x + a + s * 0.11f, c.y + a + s * 0.17f}, ImGui::GetColorU32(kBlack),
+                      th * 0.9f);
+        break;
+    }
     default: // grid: 2x2 squares
         for (int ix = 0; ix < 2; ++ix)
             for (int iy = 0; iy < 2; ++iy)
@@ -1160,14 +1185,40 @@ void separator_vertical() {
 void open_externally(const fs::path& target) {
     std::error_code ec;
     if (!fs::exists(target, ec)) return;
+    // Percent-encode the characters that would otherwise split the URL; '%' has
+    // to go first, or a path with a literal % ends up double-encoded.
     std::string url = "file:///";
+    char escape[4]{};
     for (const char c : target.generic_string()) {
-        if (c == ' ') url += "%20";
-        else if (c == '#') url += "%23";
-        else if (c == '?') url += "%3F";
-        else url += c;
+        const bool reserved = c == '%' || c == ' ' || c == '#' || c == '?' || c == '\n' ||
+                              c == '\r';
+        if (reserved) {
+            std::snprintf(escape, sizeof(escape), "%%%02X", static_cast<unsigned char>(c));
+            url += escape;
+        } else {
+            url += c;
+        }
     }
     SDL_OpenURL(url.c_str());
+}
+
+// Support: the Window, Scripts and Help menus all reach the author's Discord.
+void open_discord(App& app) {
+    SDL_OpenURL(kDiscordUrl);
+    app.editor.log(std::string("help: opening Discord (") + kDiscordId + ")");
+}
+
+// Opens one of the engine's docs/*.md files with the OS handler, so the Help
+// entries open the real document instead of only logging its name.
+void open_docs(App& app, const char* file) {
+    std::error_code ec;
+    const auto path = find_up(std::filesystem::current_path(ec), std::string("docs/") + file);
+    if (path.empty()) {
+        app.editor.log(std::string("docs: ") + file + " not found");
+        return;
+    }
+    open_externally(path);
+    app.editor.log(std::string("docs: opening ") + file);
 }
 
 // Writes a fresh Grid script into the project and logs the result. Used by the
@@ -1229,7 +1280,7 @@ void draw_menu_bar(App& app) {
 
     // Menu items: each one performs the action it names, or is disabled when
     // the action is impossible right now. Nothing here is decorative.
-    const char* menus[] = {"File", "Edit", "View", "Project", "Scene", "Scripts"};
+    const char* menus[] = {"File", "Edit", "View", "Project", "Scene", "Scripts", "Window", "Help"};
     for (const char* item : menus) {
         if (ImGui::BeginMenu(item)) {
             const std::string which = item;
@@ -1352,8 +1403,42 @@ void draw_menu_bar(App& app) {
                     app.editor.log("scripts: re-scanned the project scripts");
                 }
                 ImGui::Separator();
-                if (ImGui::MenuItem("Grid language docs")) {
-                    app.editor.log("Grid: numeric rules on entities, see docs/grid-language-v0.9.md");
+                if (ImGui::MenuItem("Grid language docs")) open_docs(app, "grid-language-v0.9.md");
+                if (ImGui::MenuItem("Script integration docs"))
+                    open_docs(app, "script-integration-v0.9.md");
+                if (ImGui::MenuItem("Discord: scripts & modules")) open_discord(app);
+            } else if (which == "Window") {
+                if (ImGui::MenuItem("Minimize")) SDL_MinimizeWindow(app.window);
+                if (ImGui::MenuItem(app.maximized ? "Restore" : "Maximize")) {
+                    if (app.maximized) SDL_RestoreWindow(app.window);
+                    else SDL_MaximizeWindow(app.window);
+                    app.maximized = !app.maximized;
+                }
+                if (ImGui::MenuItem("Close window", "Alt+F4")) app.running = false;
+                ImGui::Separator();
+                if (ImGui::MenuItem("Frames - Animation Sequence", nullptr, app.frameset_open,
+                                    app.project_open))
+                    app.frameset_open = !app.frameset_open;
+                if (ImGui::MenuItem("Node catalog", nullptr, app.add_node_popup, app.project_open))
+                    app.add_node_popup = !app.add_node_popup;
+                ImGui::Separator();
+                if (ImGui::MenuItem("Discord support")) open_discord(app);
+            } else if (which == "Help") {
+                if (ImGui::MenuItem("Discord support - perizokvana")) open_discord(app);
+                if (ImGui::MenuItem("Copy Discord ID")) {
+                    ImGui::SetClipboardText(kDiscordId);
+                    app.editor.log(std::string("help: ") + kDiscordId + " copied to the clipboard");
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Grid language docs")) open_docs(app, "grid-language-v0.9.md");
+                if (ImGui::MenuItem("Export docs")) open_docs(app, "export-v0.9.md");
+                if (ImGui::MenuItem("Script integration docs"))
+                    open_docs(app, "script-integration-v0.9.md");
+                if (ImGui::MenuItem("Audio docs")) open_docs(app, "v0.5-audio.md");
+                ImGui::Separator();
+                if (ImGui::MenuItem("About GridEngine")) {
+                    app.editor.log(std::string("GridEngine ") + std::string(gridengine::version()) +
+                                   " - editor frontend; support: " + kDiscordUrl);
                 }
             }
         }
@@ -1532,12 +1617,21 @@ void draw_hierarchy(App& app, float height) {
         return end_panel();
     const bool editing = app.project_open && !app.editor.playing();
     ImGui::PushID("##hierhdr");
+    // A separate "+" for nodes: it opens the catalog picker of the reference
+    // (Core / Visual / Logic / Input / Physics / Custom) instead of dropping a
+    // bare entity into the tree.
+    ImGui::SetCursorPos({kHierarchyWidth - 114.0f, 4.0f});
+    if (icon_button("##hier_node", 44, 22, ImGui::GetColorU32(kMint), !editing)) {
+        app.add_node_popup = true;
+        app.editor.log("node: pick a node type");
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Add node... (catalog)");
     ImGui::SetCursorPos({kHierarchyWidth - 88.0f, 4.0f});
     if (icon_button("##hier_add", 17, 22, ImGui::GetColorU32(kWhiteDim), !editing)) {
         (void)app.editor.create_entity("Entity");
         app.dirty = true;
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Add entity");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Add empty entity");
     ImGui::SetCursorPos({kHierarchyWidth - 62.0f, 4.0f});
     if (icon_button("##hier_dup", 19, 22, ImGui::GetColorU32(kWhiteDim), !editing)) {
         if (app.editor.duplicate_selected()) app.dirty = true;
@@ -2175,7 +2269,7 @@ void draw_frameset(App& app) {
     // The slot is remembered between frames, so the same frameset stays open
     // while the window is used.
     gridengine::Sprite2D sprite = entity->sprite ? *entity->sprite : gridengine::Sprite2D{};
-    int slot = app.frameset_slot;
+    int slot = app.frameset_index;
     if (!entity->sprite || slot < 0 || slot >= static_cast<int>(app.editor.framesets().size()))
         slot = -1;
     else if (app.editor.framesets()[static_cast<std::size_t>(slot)].texture != sprite.texture)
@@ -2188,7 +2282,7 @@ void draw_frameset(App& app) {
             }
         }
     }
-    app.frameset_slot = slot >= 0 ? slot : -1;
+    app.frameset_index = slot >= 0 ? slot : -1;
 
     // --- left column: the animation list ---------------------------------------
     ImGui::SetCursorPos({list_x, kHeader + 12.0f});
@@ -2283,7 +2377,8 @@ void draw_frameset(App& app) {
 
     if (set && !set->frames.empty() && clip) {
         const int slots = static_cast<int>(clip->frames.size());
-        if (app.frameset_playhead >= slots) app.frameset_playhead = slots - 1;
+        if (app.frameset_playhead < 0 || app.frameset_playhead >= slots)
+            app.frameset_playhead = slots > 0 ? 0 : -1;
         const float cell_w = 74.0f;
         const float label_w = 30.0f;
         const float headers_y = kHeader + 34.0f;
@@ -2366,7 +2461,8 @@ void draw_frameset(App& app) {
         }
 
         // Sheet frame strip: visible when a slot is being re-pointed.
-        if (app.frameset_sheet_open) {
+        if (app.frameset_sheet_open && app.frameset_playhead >= 0 &&
+            app.frameset_playhead < slots) {
             const float strip_y = cards_y + cards_h + 12.0f;
             ImGui::SetCursorPos({seq_x, strip_y});
             ImGui::TextColored(kWhiteFaint, "%s", "Sheet frames - click to use");
@@ -2452,17 +2548,22 @@ void draw_frameset(App& app) {
             app.dirty = true;
         }
         ImGui::SameLine();
-        ImGui::Checkbox("loop", &clip->loop);
+        if (ImGui::Checkbox("loop", &clip->loop)) app.dirty = true;
 
         const float row3 = row2 + 26.0f;
-        static char anim_name[64]{};
-        if (clip->name != anim_name) std::snprintf(anim_name, sizeof(anim_name), "%s", clip->name.c_str());
+        // The buffer belongs to the animation that is open: without the owner
+        // check the field kept the previous animation's name on screen.
+        if (app.clip_name_frameset != slot || app.clip_name_slot != app.frameset_slot) {
+            app.clip_name_frameset = slot;
+            app.clip_name_slot = app.frameset_slot;
+            std::snprintf(app.clip_name, sizeof(app.clip_name), "%s", clip->name.c_str());
+        }
         ImGui::SetCursorPos({seq_x, row3});
         ImGui::TextColored(kWhiteFaint, "%s", "name");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(seq_w - 60.0f);
-        if (ImGui::InputText("##anim_name", anim_name, sizeof(anim_name))) {
-            clip->name = anim_name[0] == '\0' ? "Animation" : anim_name;
+        if (ImGui::InputText("##anim_name", app.clip_name, sizeof(app.clip_name))) {
+            clip->name = app.clip_name[0] == '\0' ? "Animation" : app.clip_name;
             app.dirty = true;
         }
     }
@@ -2512,7 +2613,9 @@ void draw_frameset(App& app) {
                 if (slot < 0) {
                     slot = app.editor.add_frameset(sliced);
                     set = &app.editor.framesets()[static_cast<std::size_t>(slot)];
-                    app.frameset_slot = slot;
+                    app.frameset_index = slot;
+                    app.frameset_slot = -1;
+                    app.frameset_playhead = -1;
                 } else {
                     *set = sliced;
                 }
@@ -2524,7 +2627,10 @@ void draw_frameset(App& app) {
                                                                         sliced.frames.size());
                                                   }),
                                    c.frames.end());
-                if (app.editor.set_animation(slot, app.frameset_slot)) app.dirty = true;
+                // The sheet changed even when no clip is selected yet, so the
+                // scene is marked dirty either way.
+                (void)app.editor.set_animation(slot, app.frameset_slot);
+                app.dirty = true;
                 app.editor.log("frames: " + std::to_string(sliced.frames.size()) + " frames (" +
                                std::to_string(sliced.columns) + "x" + std::to_string(sliced.rows) +
                                ")");
@@ -3036,9 +3142,9 @@ int editor_main(int argc, char** argv) {
                 } else {
                     refresh_assets(app);
                     const std::string relative = "assets/" + source.filename().string();
-                    if (app.frameset_slot >= 0 &&
-                        app.frameset_slot < static_cast<int>(app.editor.framesets().size()))
-                        app.editor.framesets()[static_cast<std::size_t>(app.frameset_slot)].texture =
+                    if (app.frameset_index >= 0 &&
+                        app.frameset_index < static_cast<int>(app.editor.framesets().size()))
+                        app.editor.framesets()[static_cast<std::size_t>(app.frameset_index)].texture =
                             relative;
                     if (auto* node = app.editor.inspected_entity()) {
                         if (node->sprite) {

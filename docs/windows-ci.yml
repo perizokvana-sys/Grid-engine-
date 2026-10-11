@@ -1,0 +1,56 @@
+# Windows x64 CI build (MSVC) - template.
+#
+# GitHub only accepts workflow files pushed with the "workflows" permission, so
+# keep this copy in docs/ and enable it with two commands:
+#
+#   mkdir -p .github/workflows
+#   cp docs/windows-ci.yml .github/workflows/windows-build.yml
+#   git add .github/workflows/windows-build.yml && git commit -m "Add Windows CI" && git push
+#
+# Afterwards every push to main (or the Run workflow button on the Actions tab)
+# publishes gridengine_editor.exe, gridengine_demo.exe and gridengine_game.exe
+# as the "gridengine-windows-x64" artifact.
+#
+name: Windows build
+
+# Builds the editor/demo/game for Windows x64 with MSVC and publishes the
+# executables as artifacts, so a fixed build can be downloaded without a local
+# Visual Studio toolchain. The bundled dependencies/ provide SDL3 and Dear ImGui;
+# CMake comes from the runner (the repository does not store tool binaries).
+on:
+  push:
+    branches: [main, "cline/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -A x64
+
+      - name: Build (Release)
+        run: cmake --build build --config Release --parallel
+
+      - name: Tests
+        # The texture/C#/audio tests are Windows only and need the local toolchain;
+        # a failure here is reported but must not block the artifacts.
+        continue-on-error: true
+        env:
+          GRIDENGINE_SKIP_EXPORT_BUILD: "0"
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Upload executables
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gridengine-windows-x64
+          if-no-files-found: error
+          path: |
+            build/Release/gridengine_editor.exe
+            build/Release/gridengine_demo.exe
+            build/Release/gridengine_game.exe

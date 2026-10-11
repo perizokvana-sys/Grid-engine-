@@ -59,6 +59,9 @@ constexpr ImVec4 kEngine{0.315f, 0.533f, 0.510f, 1.0f};
 
 constexpr const char* kEngineVersion = "1.0.0";
 
+// Support: the Help link of the launcher footer opens the author Discord profile.
+constexpr const char* kDiscordUrl = "https://discord.com/users/1502361530950353178";
+
 // Fonts shipped with Dear ImGui. A crisp TTF at several sizes replaces the
 // pixelated default bitmap font, which is what made the old UI look dated.
 constexpr const char* kFontBold = "dependencies/imgui/imgui-master/misc/fonts/Roboto-Medium.ttf";
@@ -366,6 +369,50 @@ bool action_card(const char* label, const char* hint, int icon, ImVec2 size, flo
     return pressed;
 }
 
+// A quiet footer link: dim type that brightens and underlines on hover. The
+// launcher footer uses it for the Window / Scripts / Help entries, so the three
+// links are real actions instead of decoration.
+bool footer_link(ImDrawList* draw, const char* label, ImVec2 pos, float font_size, float scale) {
+    const float width = ImGui::CalcTextSize(label).x * (font_size / ImGui::GetFontSize());
+    const ImVec2 size{width, font_size + 8.0f * scale};
+    ImGui::SetCursorPos(pos);
+    const bool pressed = ImGui::InvisibleButton(label, size);
+    const bool hovered = ImGui::IsItemHovered();
+    const ImU32 color = ImGui::GetColorU32(hovered ? kMint : kWhiteFaint);
+    draw->AddText(nullptr, font_size, {pos.x, pos.y + 3.0f * scale}, color, label);
+    if (hovered)
+        draw->AddLine({pos.x, pos.y + size.y - 3.0f * scale},
+                      {pos.x + size.x, pos.y + size.y - 3.0f * scale}, color, 1.0f);
+    return pressed;
+}
+
+// Opens a bundled docs/*.md file with the OS handler, walking up from the
+// working directory, so the footer links reach the real documentation.
+void open_docs(const char* relative) {
+    std::error_code ec;
+    auto dir = std::filesystem::current_path(ec);
+    for (int depth = 0; depth < 8 && !dir.empty(); ++depth) {
+        const auto candidate = dir / relative;
+        if (std::filesystem::is_regular_file(candidate, ec)) {
+            std::string url = "file:///";
+            for (const char c : candidate.generic_string()) {
+                if (c == '%' || c == ' ' || c == '#' || c == '?') {
+                    char escape[4]{};
+                    std::snprintf(escape, sizeof(escape), "%%%02X", static_cast<unsigned char>(c));
+                    url += escape;
+                } else {
+                    url += c;
+                }
+            }
+            SDL_OpenURL(url.c_str());
+            return;
+        }
+        const auto parent = dir.parent_path();
+        if (parent == dir) break;
+        dir = parent;
+    }
+}
+
 // --- dialogs ------------------------------------------------------------
 // Modals use the same slate + mint theme as the rest of the menu: no title
 // bar (so there is no duplicate close button at the top), a themed header
@@ -579,6 +626,36 @@ void menu(App& app) {
                       {margin, footer_y + ImGui::GetFontSize() * scale + 2.0f},
                       ImGui::GetColorU32(kWhiteFaint), app.status.c_str());
     }
+    // Quiet support row: Window opens the display options, Scripts the script
+    // documentation, Help the Discord support link.
+    {
+        const float link_size = ImGui::GetFontSize() * (0.85f * scale);
+        const char* labels[] = {"Window", "Scripts", "Help"};
+        float widths[3]{};
+        float total = 0.0f;
+        for (int i = 0; i < 3; ++i) {
+            widths[i] = ImGui::CalcTextSize(labels[i]).x * (link_size / ImGui::GetFontSize());
+            total += widths[i];
+        }
+        const float link_gap = 28.0f * scale;
+        float link_x = size.x * 0.5f - (total + link_gap * 2.0f) * 0.5f;
+        for (int i = 0; i < 3; ++i) {
+            if (footer_link(draw, labels[i], {link_x, footer_y}, link_size, scale)) {
+                if (i == 0) {
+                    app.settings_popup = true;
+                    app.status = "Window: display and editor options";
+                } else if (i == 1) {
+                    open_docs("docs/script-integration-v0.9.md");
+                    app.status = "Scripts: opening the script documentation";
+                } else {
+                    SDL_OpenURL(kDiscordUrl);
+                    app.status = "Help: opening Discord support";
+                }
+            }
+            link_x += widths[i] + link_gap;
+        }
+    }
+
     const std::string version = std::string("GridEngine ") + kEngineVersion;
     const ImVec2 version_size = ImGui::CalcTextSize(version.c_str());
     draw->AddText({size.x - margin - version_size.x, footer_y},
