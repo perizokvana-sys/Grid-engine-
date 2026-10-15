@@ -110,12 +110,12 @@ while (true) {
 )CSHARP";
 }
 #else
-int run_and_capture(const std::string&, std::string& output) {
+[[maybe_unused]] int run_and_capture(const std::string&, std::string& output) {
     output = "C# bridge is only implemented on Windows";
     return -1;
 }
-std::string quote(const std::string&) { return {}; }
-std::string csharp_source() { return {}; }
+[[maybe_unused]] std::string quote(const std::string&) { return {}; }
+[[maybe_unused]] std::string csharp_source() { return {}; }
 #endif
 } // namespace
 
@@ -221,6 +221,7 @@ bool CSharpBridge::build(const std::filesystem::path& project_dir, std::string a
     }
     return true;
 #else
+    (void)assembly_name;
     impl_->error = "The C# bridge is only implemented on Windows";
     return false;
 #endif
@@ -332,6 +333,11 @@ bool CSharpBridge::step(std::uint64_t id, double x, double y, double rotation, d
     impl_->error = "Unknown bridge response: " + response;
     return false;
 #else
+    (void)id;
+    (void)x;
+    (void)y;
+    (void)rotation;
+    (void)delta;
     impl_->error = "The C# bridge is only implemented on Windows";
     return false;
 #endif

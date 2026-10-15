@@ -61,4 +61,12 @@ struct ExportResult {
 [[nodiscard]] std::string_view export_platform_name(ExportPlatform) noexcept;
 [[nodiscard]] std::string_view build_type_name(BuildType) noexcept;
 
+// Locates the CMake executable the exporter drives. The bundled toolchain
+// (<start_dir | current dir>/dependencies/cmake/<version>/bin) wins; when it is
+// absent - the repository does not store the tool's binaries - a system CMake
+// from PATH is used instead. Returns an empty path when neither exists, which
+// is what ExportToolchain::resolvable() reports back to the caller.
+[[nodiscard]] std::filesystem::path find_cmake_executable(
+    const std::filesystem::path& start_dir = {});
+
 } // namespace gridengine

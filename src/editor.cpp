@@ -171,7 +171,7 @@ void Editor::step(double delta_seconds) {
     if (!scene_.update(delta_seconds)) log("scene: update rejected");
     // Sprite sheet animation advances with the frame rate, after scripts and
     // motion, so a moving character also animates while played.
-    scene_.advance_animations(delta_seconds);
+    (void)scene_.advance_animations(delta_seconds);
     // Audio failures collected while playing surface on the console.
     for (const auto& reason : audio_.failures())
         if (std::find(console_.begin(), console_.end(), "audio: " + reason) == console_.end())

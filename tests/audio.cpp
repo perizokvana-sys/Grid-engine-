@@ -24,7 +24,7 @@ int main() {
     assert(manager.stop(id) && manager.state(id) == PlaybackState::Stopped);
     auto other = manager.create(AudioSource{"broken.ogg"});
     assert(other != 0); // File/device validation belongs to a decoder backend.
-    manager.play(other); manager.remove(other);
+    (void)manager.play(other); manager.remove(other);
     assert(manager.state(other) == PlaybackState::Stopped && manager.source_count() == 1);
     manager.stop_all();
 }

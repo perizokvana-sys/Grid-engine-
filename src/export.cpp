@@ -57,6 +57,66 @@ bool exists_file(const fs::path& path) {
     return fs::is_regular_file(path, ec);
 }
 
+// "cmake.exe" on Windows, "cmake" elsewhere.
+fs::path cmake_binary_name() {
+#ifdef _WIN32
+    return fs::path("cmake.exe");
+#else
+    return fs::path("cmake");
+#endif
+}
+
+// Looks for <dir>/dependencies/cmake/<version>/bin/<cmake> walking up from
+// `start`. The newest version directory wins, matching what the README ships.
+fs::path bundled_cmake(const fs::path& start) {
+    std::error_code ec;
+    auto dir = start.empty() ? fs::current_path(ec) : start;
+    for (int depth = 0; depth < 8 && !dir.empty(); ++depth) {
+        const auto base = dir / "dependencies" / "cmake";
+        if (fs::is_directory(base, ec)) {
+            fs::path best;
+            for (const auto& entry : fs::directory_iterator(base, ec)) {
+                const auto candidate = entry.path() / "bin" / cmake_binary_name();
+                if (exists_file(candidate) &&
+                    (best.empty() || entry.path().filename() > best.parent_path().parent_path().filename()))
+                    best = candidate;
+            }
+            if (!best.empty()) return best;
+        }
+        const auto parent = dir.parent_path();
+        if (parent == dir) break;
+        dir = parent;
+    }
+    return {};
+}
+
+// First CMake on PATH. Splitting is done by hand because the separator differs
+// between Windows (';') and POSIX (':').
+fs::path system_cmake() {
+    const char* const value = std::getenv("PATH");
+    if (!value) return {};
+    const std::string paths = value;
+    const char separator =
+#ifdef _WIN32
+        ';';
+#else
+        ':';
+#endif
+    std::size_t begin = 0;
+    while (begin <= paths.size()) {
+        const std::size_t end = paths.find(separator, begin);
+        const std::string entry =
+            paths.substr(begin, end == std::string::npos ? std::string::npos : end - begin);
+        if (!entry.empty()) {
+            const auto candidate = fs::path(entry) / cmake_binary_name();
+            if (exists_file(candidate)) return candidate;
+        }
+        if (end == std::string::npos) break;
+        begin = end + 1;
+    }
+    return {};
+}
+
 // Runs a command with its output redirected to log_file. std::system() mangles
 // quoted program paths through cmd.exe, so the Windows path uses CreateProcess.
 #ifdef _WIN32
@@ -240,6 +300,11 @@ std::string_view build_type_name(BuildType t) noexcept {
 bool ExportToolchain::resolvable() const {
     return exists_file(cmake) && exists_file(gridengine_static_lib) &&
            exists_file(sdl_static_lib) && exists_file(game_runtime_source);
+}
+
+fs::path find_cmake_executable(const fs::path& start_dir) {
+    if (const auto bundled = bundled_cmake(start_dir); !bundled.empty()) return bundled;
+    return system_cmake();
 }
 
 ExportResult export_project(const fs::path& project_file, const fs::path& destination,

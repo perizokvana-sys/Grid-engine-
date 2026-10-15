@@ -38,10 +38,11 @@
 *.out
 *.app
 
-# Build directories
-build/
-Build/
-build-*/
+# Build directories (build/, build_clean/, build_debug/, build_vs/, ...)
+# Anchored to the repository root so vendored trees keep their build-* folders.
+/build/
+/Build/
+/build*/
 
 # CMake generated files
 CMakeFiles/
@@ -51,14 +52,26 @@ Makefile
 install_manifest.txt
 compile_commands.json
 
-# Temporary files
+# Temporary files / local scratch
 *.tmp
 *.log
 *.bak
 *.swp
+.tmp/
+
+# Release archives belong in GitHub Releases, not in the tree
+*.zip
 
 # vcpkg
 vcpkg_installed/
+
+# The bundled toolchain and libraries keep their binaries: dependencies/cmake
+# ships cmake.exe/ctest.exe and SDL ships prebuilt static libraries, which the
+# exporter links into the packages (the rules above would hide them).
+!/dependencies/**/*.exe
+!/dependencies/**/*.dll
+!/dependencies/**/*.lib
+!/dependencies/**/*.a
 
 # debug information files
 *.dwo

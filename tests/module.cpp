@@ -76,8 +76,8 @@ int run_and_capture(const std::string& command, std::string& output) {
 }
 std::string quote(const std::string& text) { return "\"" + text + "\""; }
 #else
-int run_and_capture(const std::string&, std::string& output) { output = "not supported"; return -1; }
-std::string quote(const std::string&) { return {}; }
+[[maybe_unused]] int run_and_capture(const std::string&, std::string& output) { output = "not supported"; return -1; }
+[[maybe_unused]] std::string quote(const std::string&) { return {}; }
 #endif
 
 #ifdef _WIN32
@@ -93,7 +93,7 @@ std::filesystem::path module_test_exe() {
     }
 }
 #else
-std::filesystem::path module_test_exe() {
+[[maybe_unused]] std::filesystem::path module_test_exe() {
     const auto* self = "/proc/self/exe";
     std::error_code ec;
     auto resolved = fs::read_symlink(self, ec);
@@ -101,7 +101,7 @@ std::filesystem::path module_test_exe() {
 }
 #endif
 
-fs::path engine_root() {
+[[maybe_unused]] fs::path engine_root() {
     auto dir = fs::current_path();
     for (int depth = 0; depth < 8 && !dir.empty(); ++depth) {
         if (fs::exists(dir / "src" / "tools" / "game_runtime.cpp") &&
@@ -114,7 +114,7 @@ fs::path engine_root() {
     return {};
 }
 
-bool exists_file(const fs::path& path) {
+[[maybe_unused]] bool exists_file(const fs::path& path) {
     std::error_code ec;
     return fs::is_regular_file(path, ec);
 }
